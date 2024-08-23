@@ -1,0 +1,101 @@
+import telebot
+from telebot import types
+import random
+
+token = '6'  # Replace with your actual bot token
+bot = telebot.TeleBot(token)
+
+HELP = """
+/start - Go to
+/help - напечатать справку по программе.
+/add - добавить задачу в список (название задачи запрашиваем у пользователя).
+/show [date] - напечатать все добавленные задачи.
+/random - создает случайную задачу на сегодня
+"""
+
+tasks = {}
+random_tasks = ["Go to perfect", "Учиться", "Работать"]
+
+@bot.message_handler(commands=["start"])
+def start(message):
+    bot.send_message(message.chat.id, "Привет", reply_markup=menu())
+
+def menu():
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
+    keyboard.add("button1", "button2")
+    keyboard.add(types.KeyboardButton("Show"))
+    return keyboard
+
+@bot.message_handler(func=lambda message: True)
+def check_button(message):
+    if message.text == "button1":
+        bot.reply_to(message, "кнопка1 нажата")
+    elif message.text == "button2":
+        bot.reply_to(message, "Кнопка2 нажата")
+    elif message.text == "Show":
+        bot.reply_to(message, HELP)
+    else:
+        bot.reply_to(message, f'Ваше сообщение: <b>{message.text}</b>', parse_mode="HTML")
+
+def add_todo(date, task):
+    if date not in tasks:
+        tasks[date] = []
+    tasks[date].append(task)
+
+def len_list(task):
+    """проверяет что задача состоит как минимум из 3-х букв"""
+    if len(task) < 3:
+        print("Задача должна быть не короче 3-х букв")
+        return False
+    return True
+
+@bot.message_handler(commands=["help"])
+def help_list(message):
+    bot.send_message(message.chat.id, HELP)
+
+@bot.message_handler(commands=["add"])
+def add(message):
+    command = message.text.split(maxsplit=2)
+    if len(command) < 3:
+        bot.send_message(message.chat.id, "Пожалуйста, введите дату и задачу.")
+        return
+    
+    date = command[1].lower()
+    task = command[2]
+    
+    if len_list(task):
+        add_todo(date, task)
+        text = "Задача: " + task + " добавлена на дату: " + date
+        bot.send_message(message.chat.id, text)
+    else:
+        bot.send_message(message.chat.id, "Задача не была добавлена.")
+
+@bot.message_handler(commands=["random"])
+def random_add(message):
+    date = "сегодня"
+    task = random.choice(random_tasks)
+    add_todo(date, task)
+    text = "Задача " + task + " добавлена на дату " + date
+    bot.send_message(message.chat.id, text)
+
+@bot.message_handler(commands=["show"])
+def show(message):
+    command = message.text.split(maxsplit=1)
+    
+    if len(command) < 2:
+        bot.send_message(message.chat.id, "Пожалуйста, укажите дату.")
+        return
+    
+    date = command[1].lower()
+    text = ""
+    
+    if date in tasks:
+        text = date.upper() + "\n"
+        for task in tasks[date]:
+            text += "[] " + task + "\n"
+    else:
+        text = "Задач на эту дату нет"
+    
+    bot.send_message(message.chat.id, text)
+
+bot.polling(none_stop=True)
